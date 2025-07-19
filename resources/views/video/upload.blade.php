@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Upload Video</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -57,8 +58,15 @@
 
             const res = await fetch("{{ route('video.upload') }}", {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                        'content'),
+                    'Accept': 'application/json'
+                },
                 body: formData
             });
+
+
 
             const data = await res.json();
             const filename = data.filename;
