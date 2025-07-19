@@ -35,9 +35,9 @@ class VideoController extends Controller
 
     public function upload(Request $request)
     {
-        $request->validate([
-            'video' => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-m4v,video/*|max:51200',
-        ]);
+        // $request->validate([
+        //     'video' => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-m4v,video/*|max:51200',
+        // ]);
 
         $uploadDir = storage_path('app/uploads');
 
