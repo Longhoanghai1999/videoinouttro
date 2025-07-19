@@ -26,5 +26,9 @@ use App\Http\Controllers\VideoController;
 
 
 Route::get('/', [VideoController::class, 'index']);
+
+Route::get('abc', function () {
+    echo "cc";
+});
 Route::post('/upload', [VideoController::class, 'upload'])->name('video.upload');
 Route::get('/videos/{filename}', [VideoController::class, 'download'])->name('video.download');
