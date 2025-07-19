@@ -18,19 +18,26 @@ class VideoController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'video' => 'required|file|mimetypes:video/mp4|max:102400', // max 100MB
+            'video' => 'required|file|mimetypes:video/mp4|max:102400',
         ]);
 
-        $path = $request->file('video')->store('uploads');
-        $filename = basename($path);
+        $uploadDir = storage_path('app/uploads');
+
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $filename = Str::random(40) . '.mp4';
+        $request->file('video')->move($uploadDir, $filename);
 
         MergeVideoJob::dispatch($filename);
 
         return response()->json([
             'message' => 'Video is being processed...',
-            'filename' => $filename
+            'filename' => $filename,
         ]);
     }
+
 
     public function download($filename)
     {
