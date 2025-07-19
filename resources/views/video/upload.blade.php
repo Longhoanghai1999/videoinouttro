@@ -56,19 +56,35 @@
             const formData = new FormData();
             formData.append('video', file);
 
-            const res = await fetch("{{ route('video.upload') }}", {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
-                        'content'),
-                    'Accept': 'application/json'
-                },
-                body: formData
-            });
+            try {
+                const res = await fetch("{{ route('video.upload') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                            'content'),
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
 
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log("✅ Success:", data);
+                } else if (res.status === 422) {
+                    const errorData = await res.json();
+                    console.error("❌ Validation errors:", errorData.errors);
+                    // Ví dụ: hiển thị lỗi ra UI
+                    alert(Object.values(errorData.errors).flat().join("\n"));
+                } else {
+                    const errorData = await res.text();
+                    console.error("❌ Other error:", errorData);
+                    alert("Đã có lỗi xảy ra.");
+                }
+            } catch (error) {
+                console.error("❌ Exception:", error);
+                alert("Lỗi kết nối đến máy chủ.");
+            }
 
-
-            const data = await res.json();
             const filename = data.filename;
             const videoUrl = `/videos/result_${filename}`;
 
