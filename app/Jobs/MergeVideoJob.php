@@ -8,6 +8,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Log;
 
 class MergeVideoJob implements ShouldQueue
 {
@@ -22,26 +23,41 @@ class MergeVideoJob implements ShouldQueue
 
     public function handle()
     {
-        $intro = storage_path('app/templates/intro.mp4');
+        // Các file intro/outro đặt trong public/videos/static/
+        $intro = public_path('videos/static/intro.mp4');
+        $outro = public_path('videos/static/outro.mp4'); // sửa đường dẫn bị dư dấu /
         $user  = storage_path("app/uploads/{$this->userFilename}");
-        $outro = storage_path('app/templates/outtro.mp4');
 
-        $listFile = storage_path("app/tmp/merge_list_" . Str::random(10) . ".txt");
-        $output   = storage_path("app/processed/result_{$this->userFilename}");
+        $output = storage_path("app/processed/result_{$this->userFilename}");
+        $tmpDir = storage_path('app/tmp');
 
-        if (!file_exists(dirname($listFile))) {
-            mkdir(dirname($listFile), 0777, true);
+        if (!file_exists($tmpDir)) {
+            mkdir($tmpDir, 0777, true);
         }
 
-        file_put_contents($listFile, "file '{$intro}'\nfile '{$user}'\nfile '{$outro}'");
+        $listFile = $tmpDir . '/merge_list_' . Str::random(10) . '.txt';
 
-        $cmd = "ffmpeg -f concat -safe 0 -i {$listFile} -c copy {$output}";
+        // Đảm bảo escape dấu cách bằng cách bao đường dẫn trong dấu nháy đơn
+        $content = "file '" . addslashes($intro) . "'\n";
+        $content .= "file '" . addslashes($user) . "'\n";
+        $content .= "file '" . addslashes($outro) . "'\n";
 
+        file_put_contents($listFile, $content);
+
+        // Gọi ffmpeg
+        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c copy " . escapeshellarg($output);
         exec($cmd, $outputLines, $exitCode);
-        unlink($listFile);
+
+        unlink($listFile); // Xoá file danh sách sau khi xử lý
 
         if ($exitCode !== 0) {
-            \Log::error("Merge failed for {$this->userFilename}", $outputLines);
+            Log::error("❌ Merge failed for {$this->userFilename}", [
+                'exit_code' => $exitCode,
+                'output' => $outputLines,
+                'cmd' => $cmd,
+            ]);
+        } else {
+            Log::info("✅ Merge success: {$output}");
         }
     }
 }
