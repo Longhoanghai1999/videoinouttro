@@ -9,6 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 
 class MergeVideoJob implements ShouldQueue
 {
@@ -23,12 +24,16 @@ class MergeVideoJob implements ShouldQueue
 
     public function handle()
     {
-        // Các file intro/outro đặt trong public/videos/static/
+        $processedStorageDir = storage_path('app/processed');
+        if (!file_exists($processedStorageDir)) {
+            mkdir($processedStorageDir, 0777, true);
+        }
+
         $intro = public_path('videos/static/intro.mp4');
-        $outro = public_path('videos/static/outro.mp4'); // sửa đường dẫn bị dư dấu /
+        $outro = public_path('videos/static/outro.mp4');
         $user  = storage_path("app/uploads/{$this->userFilename}");
 
-        $output = storage_path("app/processed/result_{$this->userFilename}");
+        $tempOutput = storage_path("app/processed/result_{$this->userFilename}");
         $tmpDir = storage_path('app/tmp');
 
         if (!file_exists($tmpDir)) {
@@ -37,18 +42,15 @@ class MergeVideoJob implements ShouldQueue
 
         $listFile = $tmpDir . '/merge_list_' . Str::random(10) . '.txt';
 
-        // Đảm bảo escape dấu cách bằng cách bao đường dẫn trong dấu nháy đơn
         $content = "file '" . addslashes($intro) . "'\n";
         $content .= "file '" . addslashes($user) . "'\n";
         $content .= "file '" . addslashes($outro) . "'\n";
-
         file_put_contents($listFile, $content);
 
-        // Gọi ffmpeg
-        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c copy " . escapeshellarg($output);
+        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c copy " . escapeshellarg($tempOutput);
         exec($cmd, $outputLines, $exitCode);
 
-        unlink($listFile); // Xoá file danh sách sau khi xử lý
+        unlink($listFile); // Dọn file tạm
 
         if ($exitCode !== 0) {
             Log::error("❌ Merge failed for {$this->userFilename}", [
@@ -56,8 +58,21 @@ class MergeVideoJob implements ShouldQueue
                 'output' => $outputLines,
                 'cmd' => $cmd,
             ]);
+            return;
+        }
+
+        // Chuyển video sau khi merge sang public/videos/processed/
+        $publicOutputDir = public_path('videos/processed');
+        if (!file_exists($publicOutputDir)) {
+            mkdir($publicOutputDir, 0777, true);
+        }
+
+        $finalOutput = $publicOutputDir . '/result_' . $this->userFilename;
+
+        if (!rename($tempOutput, $finalOutput)) {
+            Log::error("❌ Failed to move merged video to public folder: {$finalOutput}");
         } else {
-            Log::info("✅ Merge success: {$output}");
+            Log::info("✅ Merge success and moved to public: {$finalOutput}");
         }
     }
 }

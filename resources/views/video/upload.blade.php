@@ -61,14 +61,23 @@
             });
 
             const data = await res.json();
+            const filename = data.filename;
+            const videoUrl = `/videos/result_${filename}`;
 
-            setTimeout(() => {
-                const url = `/videos/result_${data.filename}`;
-                resultVideo.src = url;
-                downloadLink.href = url;
-                resultDiv.classList.remove('hidden');
-                loading.classList.add('hidden');
-            }, 8000); // tạm chờ xử lý xong (có thể dùng polling tốt hơn)
+            // Polling check every 3 seconds
+            const interval = setInterval(async () => {
+                const check = await fetch(videoUrl, {
+                    method: 'HEAD'
+                });
+
+                if (check.ok) {
+                    clearInterval(interval);
+                    resultVideo.src = videoUrl;
+                    downloadLink.href = videoUrl;
+                    resultDiv.classList.remove('hidden');
+                    loading.classList.add('hidden');
+                }
+            }, 3000);
         });
     </script>
 </body>
