@@ -68,7 +68,8 @@ class MergeVideoJob implements ShouldQueue
         Log::info("📄 FFmpeg merge list content:\n" . $content);
 
         // Gọi ffmpeg
-        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c copy " . escapeshellarg($tempOutput);
+        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -vf scale=1280:-2 -preset fast -crf 23 -c:v libx264 -c:a aac -movflags +faststart " . escapeshellarg($tempOutput);
+
         exec($cmd, $outputLines, $exitCode);
 
         // Xóa file tạm danh sách
