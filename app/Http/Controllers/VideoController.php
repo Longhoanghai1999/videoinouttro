@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Jobs\MergeVideoJob;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class VideoController extends Controller
 {
@@ -20,28 +21,25 @@ class VideoController extends Controller
             'video' => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-m4v,video/*|max:51200',
         ]);
 
-        $uploadDir = storage_path('app/uploads');
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
         $filename = Str::random(40) . '.mp4';
-        $filePath = $uploadDir . '/' . $filename;
+        $filePath = 'uploads/' . $filename;
 
         try {
-            // Sử dụng storeAs thay vì move để đảm bảo lưu file
-            $request->file('video')->storeAs('uploads', $filename, 'local');
-            // Kiểm tra file có tồn tại sau khi lưu
-            if (!file_exists($filePath)) {
-                Log::error("Failed to store uploaded file to: {$filePath}");
+            // Lưu file bằng Storage facade
+            $path = $request->file('video')->storeAs('uploads', $filename, 'local');
+            // Kiểm tra file có tồn tại
+            $fullPath = storage_path('app/' . $path);
+            if (!file_exists($fullPath)) {
+                Log::error("Failed to store uploaded file to: {$fullPath}");
                 return response()->json(['error' => 'Failed to upload video'], 500);
             }
+            Log::info("File uploaded successfully: {$fullPath}");
         } catch (\Exception $e) {
             Log::error("Upload error: " . $e->getMessage());
             return response()->json(['error' => 'Failed to upload video: ' . $e->getMessage()], 500);
         }
 
-        // Dispatch job đồng bộ để debug (có thể đổi lại dispatch bất đồng bộ sau khi ổn định)
+        // Dispatch đồng bộ để debug
         MergeVideoJob::dispatchSync($filename);
 
         return response()->json([
@@ -54,6 +52,7 @@ class VideoController extends Controller
     {
         $path = public_path("videos/processed/{$filename}");
         if (!file_exists($path)) {
+            Log::error("Download file not found: {$path}");
             abort(404);
         }
         return response()->file($path);

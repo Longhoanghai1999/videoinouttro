@@ -41,7 +41,6 @@
         const resultVideo = document.getElementById('resultVideo');
         const downloadLink = document.getElementById('downloadLink');
 
-        // Drag and drop
         ['dragenter', 'dragover'].forEach(evt => dropZone.addEventListener(evt, e => e.preventDefault()));
         dropZone.addEventListener('drop', e => {
             e.preventDefault();
@@ -65,8 +64,6 @@
             const formData = new FormData();
             formData.append('video', file);
 
-            let data = null;
-
             try {
                 const res = await fetch("{{ route('video.upload') }}", {
                     method: 'POST',
@@ -79,39 +76,35 @@
                 });
 
                 if (res.ok) {
-                    data = await res.json();
+                    const data = await res.json();
+                    const filename = data.filename;
+                    const videoUrl = `/videos/result_${filename}`;
+
+                    // Polling check every 3 seconds
+                    const interval = setInterval(async () => {
+                        const check = await fetch(videoUrl, {
+                            method: 'HEAD'
+                        });
+                        if (check.ok) {
+                            clearInterval(interval);
+                            resultVideo.src = videoUrl;
+                            downloadLink.href = videoUrl;
+                            resultDiv.classList.remove('hidden');
+                            loading.classList.add('hidden');
+                        }
+                    }, 3000);
                 } else {
                     const errorData = await res.json();
                     errorMessage.classList.remove('hidden');
                     errorMessage.textContent = errorData.error ||
                     'An error occurred while uploading the video.';
                     loading.classList.add('hidden');
-                    return;
                 }
             } catch (error) {
                 errorMessage.classList.remove('hidden');
                 errorMessage.textContent = 'Failed to connect to server: ' + error.message;
                 loading.classList.add('hidden');
-                return;
             }
-
-            const filename = data.filename;
-            const videoUrl = `/videos/result_${filename}`;
-
-            // Polling check every 3 seconds
-            const interval = setInterval(async () => {
-                const check = await fetch(videoUrl, {
-                    method: 'HEAD'
-                });
-
-                if (check.ok) {
-                    clearInterval(interval);
-                    resultVideo.src = videoUrl;
-                    downloadLink.href = videoUrl;
-                    resultDiv.classList.remove('hidden');
-                    loading.classList.add('hidden');
-                }
-            }, 3000);
         });
     </script>
 </body>
