@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Jobs\MergeVideoJob;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class VideoController extends Controller
@@ -25,9 +24,20 @@ class VideoController extends Controller
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
-        File::cleanDirectory($uploadDir);
+
         $filename = Str::random(40) . '.mp4';
-        $request->file('video')->move($uploadDir, $filename);
+        try {
+            $request->file('video')->move($uploadDir, $filename);
+            // Kiểm tra file có tồn tại sau khi di chuyển
+            if (!file_exists($uploadDir . '/' . $filename)) {
+                Log::error("Failed to move uploaded file to: {$uploadDir}/{$filename}");
+                return response()->json(['error' => 'Failed to upload video'], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error("Upload error: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to upload video'], 500);
+        }
+
         MergeVideoJob::dispatch($filename);
 
         return response()->json([
@@ -35,7 +45,6 @@ class VideoController extends Controller
             'filename' => $filename,
         ]);
     }
-
 
     public function download($filename)
     {

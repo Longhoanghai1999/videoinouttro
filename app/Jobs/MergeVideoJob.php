@@ -60,7 +60,7 @@ class MergeVideoJob implements ShouldQueue
         $newUser = $tmpDir . '/new_user_' . Str::random(10) . '.mp4';
         $newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
 
-        // Chuẩn hóa intro: 1280x720, 30fps, timebase 1/90000, audio AAC 44.1kHz stereo
+        // Chuẩn hóa intro
         $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
         exec($cmdIntro, $output, $exitCode);
         if ($exitCode !== 0) {
@@ -86,7 +86,7 @@ class MergeVideoJob implements ShouldQueue
 
         // Sử dụng concat filter để ghép video
         $cmd = "ffmpeg -y -i " . escapeshellarg($newIntro) . " -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($newOutro) .
-            " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat = n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -movflags +faststart " .
+            " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat=n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -movflags +faststart " .
             escapeshellarg($tempOutput) . " > " . escapeshellarg($logPath) . " 2>&1";
 
         exec($cmd, $outputLines, $exitCode);
@@ -95,6 +95,7 @@ class MergeVideoJob implements ShouldQueue
         @unlink($newIntro);
         @unlink($newUser);
         @unlink($newOutro);
+        @unlink($user); // Xóa file video người dùng sau khi xử lý
 
         if ($exitCode !== 0) {
             Log::error("FFmpeg concat failed: " . implode("\n", $outputLines));
