@@ -27,14 +27,11 @@ class MergeVideoJob implements ShouldQueue
         $uploadDir = storage_path('app/uploads');
         $tmpDir = storage_path('app/tmp');
 
-        if (!file_exists($processedStorageDir)) {
-            mkdir($processedStorageDir, 0777, true);
-        }
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-        if (!file_exists($tmpDir)) {
-            mkdir($tmpDir, 0777, true);
+        // Tạo các thư mục nếu chưa tồn tại
+        foreach ([$processedStorageDir, $uploadDir, $tmpDir] as $dir) {
+            if (!file_exists($dir)) {
+                mkdir($dir, 0777, true);
+            }
         }
 
         $intro = public_path('videos/static/intro.mp4');
@@ -44,6 +41,7 @@ class MergeVideoJob implements ShouldQueue
         $publicOutputDir = public_path('videos/processed');
         $logPath = storage_path('logs/ffmpeg_' . Str::random(8) . '.log');
 
+        // Kiểm tra sự tồn tại của các file
         foreach (
             [
                 'Intro video' => $intro,
@@ -57,13 +55,13 @@ class MergeVideoJob implements ShouldQueue
             }
         }
 
-        // Chuẩn hóa video để đảm bảo đồng nhất
+        // Chuẩn hóa video
         $newIntro = $tmpDir . '/new_intro_' . Str::random(10) . '.mp4';
         $newUser = $tmpDir . '/new_user_' . Str::random(10) . '.mp4';
         $newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
 
-        // Chuẩn hóa intro
-        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
+        // Chuẩn hóa intro: 1280x720, 30fps, timebase 1/90000, audio AAC 44.1kHz stereo
+        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
         exec($cmdIntro, $output, $exitCode);
         if ($exitCode !== 0) {
             Log::error("Failed to process intro: " . implode("\n", $output));
@@ -71,7 +69,7 @@ class MergeVideoJob implements ShouldQueue
         }
 
         // Chuẩn hóa user video, thêm audio giả nếu cần
-        $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
+        $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
         exec($cmdUser, $output, $exitCode);
         if ($exitCode !== 0) {
             Log::error("Failed to process user video: " . implode("\n", $output));
@@ -79,7 +77,7 @@ class MergeVideoJob implements ShouldQueue
         }
 
         // Chuẩn hóa outro
-        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
+        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
         exec($cmdOutro, $output, $exitCode);
         if ($exitCode !== 0) {
             Log::error("Failed to process outro: " . implode("\n", $output));
@@ -88,7 +86,7 @@ class MergeVideoJob implements ShouldQueue
 
         // Sử dụng concat filter để ghép video
         $cmd = "ffmpeg -y -i " . escapeshellarg($newIntro) . " -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($newOutro) .
-            " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat=n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -c:a aac -movflags +faststart " .
+            " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat = n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -movflags +faststart " .
             escapeshellarg($tempOutput) . " > " . escapeshellarg($logPath) . " 2>&1";
 
         exec($cmd, $outputLines, $exitCode);
