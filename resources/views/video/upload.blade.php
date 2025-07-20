@@ -8,26 +8,40 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg mx-auto">
-        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Upload Your Video</h2>
-        <form id="uploadForm" class="space-y-6" enctype="multipart/form-data">
-            <input type="file" name="video" id="videoInput" accept="video/mp4" required
-                class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors" />
-            <div id="dropZone"
-                class="border-2 border-dashed border-gray-300 p-6 sm:p-8 text-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors bg-gray-50">
-                <p class="text-gray-500 text-sm sm:text-base">Drop video here or click to upload</p>
-            </div>
-            <div id="loading" class="text-blue-600 font-medium text-center hidden">Processing...</div>
-            <div id="errorMessage" class="mt-4 text-red-600 font-medium text-center hidden"></div>
-            <button type="submit"
-                class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Upload</button>
-        </form>
-        <div id="videoResult" class="mt-6 hidden">
+<body class="bg-gray-100 min-h-screen">
+    <!-- Thanh menu trên cùng -->
+    <nav class="bg-white shadow-md p-4 flex items-center justify-between">
+        <img src="https://via.placeholder.com/150x50?text=Logo" alt="Logo" class="h-10">
+        <div class="hidden md:flex space-x-4">
+            <!-- Thêm menu items nếu cần -->
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 flex flex-col md:flex-row items-start justify-between gap-6">
+        <!-- Form upload -->
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full md:w-1/2">
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Upload Your Video</h2>
+            <form id="uploadForm" class="space-y-6" enctype="multipart/form-data">
+                <input type="file" name="video" id="videoInput" accept="video/mp4" required
+                    class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors" />
+                <div id="dropZone"
+                    class="border-2 border-dashed border-gray-300 p-6 sm:p-8 text-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors bg-gray-50">
+                    <p class="text-gray-500 text-sm sm:text-base">Drop video here or click to upload</p>
+                </div>
+                <div id="loading" class="text-blue-600 font-medium text-center hidden">Processing...</div>
+                <div id="errorMessage" class="mt-4 text-red-600 font-medium text-center hidden"></div>
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Upload</button>
+            </form>
+        </div>
+
+        <!-- Kết quả video -->
+        <div id="videoResult" class="mt-6 md:mt-0 bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full md:w-1/2">
             <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-3">Your processed video:</h3>
             <video id="resultVideo" controls class="w-full rounded-lg shadow-sm mt-2"></video>
             <a id="downloadLink"
-                class="inline-block mt-3 text-blue-600 font-medium underline hover:text-blue-800 transition-colors">Download</a>
+                class="inline-block mt-3 text-blue-600 font-medium underline hover:text-blue-800 transition-colors"
+                download>Download</a>
         </div>
     </div>
 
