@@ -29,9 +29,12 @@ class MergeVideoJob implements ShouldQueue
 
         foreach ([$processedStorageDir, $uploadDir, $tmpDir] as $dir) {
             if (!file_exists($dir)) {
-                mkdir($dir, 0777, true);
+                mkdir($dir, 0775, true);
+                chmod($dir, 0775);
+                Log::info("Created directory: {$dir}");
             }
         }
+
 
         $intro = public_path('videos/static/intro.mp4');
         $outro = public_path('videos/static/outro.mp4');
@@ -73,12 +76,13 @@ class MergeVideoJob implements ShouldQueue
         }
 
         $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
-        Log::info("Executing FFmpeg command: {$cmdUser}");
-        exec($cmdUser, $output, $exitCode);
-        Log::info("FFmpeg output: " . implode("\n", $output));
 
+        Log::info("Executing FFmpeg command for user video: {$cmdUser}");
+        exec($cmdUser, $output, $exitCode);
+        Log::info("FFmpeg user video processing exit code: {$exitCode}");
+        Log::info("FFmpeg user video output: " . implode("\n", $output));
         if ($exitCode !== 0) {
-            Log::error("Failed to process user video. FFmpeg exited with code {$exitCode}. Command: {$cmdUser}. Output:\n" . implode("\n", $output));
+            Log::error("Failed to process user video. FFmpeg exited with code {$exitCode}. Command: {$cmdUser}. Output: " . implode("\n", $output));
             return;
         }
 
