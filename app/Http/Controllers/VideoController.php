@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Jobs\MergeVideoJob;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 class VideoController extends Controller
 {
@@ -28,6 +29,7 @@ class VideoController extends Controller
         exec($cmd, $output, $exitCode);
 
         if ($exitCode !== 0 || empty($output)) {
+            Log::error("❌ Invalid video file: {$tempPath}", ['exit_code' => $exitCode, 'output' => $output]);
             return response()->json([
                 'errors' => ['video' => ['Invalid or corrupted video file.']],
             ], 422);
@@ -43,6 +45,8 @@ class VideoController extends Controller
         // Store the file with a unique filename
         $filename = Str::random(40) . '.mp4';
         $file->move($uploadDir, $filename);
+
+        Log::info("✅ Video uploaded: {$uploadDir}/{$filename}");
 
         // Dispatch the merge job
         MergeVideoJob::dispatch($filename, $uniqueDir)->onQueue('video-processing');

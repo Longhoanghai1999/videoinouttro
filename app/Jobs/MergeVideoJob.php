@@ -65,7 +65,7 @@ class MergeVideoJob implements ShouldQueue
         $tempUser = "{$tmpDir}/temp_user_" . Str::random(10) . '.mp4';
         $tempOutro = "{$tmpDir}/temp_outro_" . Str::random(10) . '.mp4';
 
-        $reencodeCmd = "ffmpeg -y -i %s -c:v libx264 -preset fast -c:a aac -ar 44100 -r 30 -s 1280x720 -pix_fmt yuv420p %s";
+        $reencodeCmd = "ffmpeg -y -i %s -c:v libx264 -preset veryfast -c:a aac -ar 44100 -r 30 -s 854x480 -pix_fmt yuv420p %s";
         foreach (
             [
                 $intro => $tempIntro,
@@ -73,6 +73,7 @@ class MergeVideoJob implements ShouldQueue
                 $outro => $tempOutro,
             ] as $input => $output
         ) {
+            Log::info("📄 Re-encoding: {$input} to {$output}");
             $cmd = sprintf($reencodeCmd, escapeshellarg($input), escapeshellarg($output));
             exec($cmd, $outputLines, $exitCode);
             if ($exitCode !== 0) {
@@ -93,11 +94,11 @@ class MergeVideoJob implements ShouldQueue
         $content .= "file '" . addslashes($tempOutro) . "'\n";
         file_put_contents($listFile, $content);
 
-        Log::info("📄 FFmpeg merge list created: {$listFile}");
+        Log::info("📄 FFmpeg merge list created: {$listFile}, content:\n{$content}");
 
         // Concatenate videos
         $concatCmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c:v libx264 -c:a aac -ar 44100 -pix_fmt yuv420p " . escapeshellarg($tempOutput);
-        exec($cmd, $outputLines, $exitCode);
+        exec($concatCmd, $outputLines, $exitCode);
 
         // Clean up temporary files
         foreach ([$listFile, $tempIntro, $tempUser, $tempOutro] as $file) {
@@ -116,9 +117,18 @@ class MergeVideoJob implements ShouldQueue
             return;
         }
 
+        // Verify temp output exists
+        if (!file_exists($tempOutput)) {
+            Log::error("❌ Temp output file not created: {$tempOutput}");
+            $this->fail(new \Exception("Temp output file not created"));
+            return;
+        }
+
         // Move result to public directory
         if (!rename($tempOutput, $finalOutput)) {
-            Log::error("❌ Failed to move merged video to public folder: {$tempOutput}");
+            Log::error("❌ Failed to move file from {$tempOutput} to {$finalOutput}", [
+                'error' => error_get_last(),
+            ]);
             $this->fail(new \Exception("Failed to move merged video"));
             return;
         }

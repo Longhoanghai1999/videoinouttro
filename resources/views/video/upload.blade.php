@@ -88,7 +88,7 @@
             const filename = data.filename;
             const videoUrl = `/videos/result_${filename}`;
             let attempts = 0;
-            const maxAttempts = 20; // Timeout after ~60 seconds
+            const maxAttempts = 40; // 120 seconds
 
             const interval = setInterval(async () => {
                 attempts++;
@@ -104,12 +104,16 @@
                         loading.classList.add('hidden');
                     } else if (attempts >= maxAttempts) {
                         clearInterval(interval);
-                        alert("Video processing timed out. Please try again.");
+                        alert(
+                            "Video processing timed out. Please try again or check server logs for errors.");
                         loading.classList.add('hidden');
+                    } else {
+                        console.log(`Attempt ${attempts}: Video not ready yet at ${videoUrl}`);
                     }
                 } catch (error) {
                     clearInterval(interval);
-                    alert("Error checking video status.");
+                    console.error("❌ Polling error:", error);
+                    alert("Error checking video status: " + error.message);
                     loading.classList.add('hidden');
                 }
             }, 3000);
