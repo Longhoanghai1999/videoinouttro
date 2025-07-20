@@ -70,8 +70,10 @@ class MergeVideoJob implements ShouldQueue
 
         $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
         exec($cmdUser, $output, $exitCode);
+
+
         if ($exitCode !== 0) {
-            Log::error("Failed to process user video: " . implode("\n", $output));
+            Log::error("Failed to process user video. FFmpeg exited with code {$exitCode}. Command: {$cmdUser}. Output:\n" . implode("\n", $output));
             return;
         }
 
@@ -88,10 +90,10 @@ class MergeVideoJob implements ShouldQueue
 
         exec($cmd, $outputLines, $exitCode);
 
-        @unlink($newIntro);
-        @unlink($newUser);
-        @unlink($newOutro);
-        @unlink($user);
+        // @unlink($newIntro);
+        // @unlink($newUser);
+        // @unlink($newOutro);
+        // @unlink($user);
 
         if ($exitCode !== 0) {
             Log::error("FFmpeg concat failed: " . implode("\n", $outputLines));

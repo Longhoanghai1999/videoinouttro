@@ -36,6 +36,10 @@ class VideoController extends Controller
             $filePath = 'uploads/' . $filename;
 
             $file = $request->file('video');
+            Log::info("Before storage", [
+                'tmp_name' => $file->getPathname(),
+                'tmp_exists' => file_exists($file->getPathname()) ? 'yes' : 'no',
+            ]);
             Log::info("File details", [
                 'original_name' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
