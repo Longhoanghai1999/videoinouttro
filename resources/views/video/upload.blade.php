@@ -89,7 +89,7 @@
                     const filename = data.filename;
                     const videoUrl = `/videos/result_${filename}`;
 
-                    const maxAttempts = 200;
+                    const maxAttempts = 400;
                     let attempts = 0;
                     const interval = setInterval(async () => {
                         if (attempts >= maxAttempts) {

@@ -51,8 +51,10 @@ class VideoController extends Controller
             Log::info("Attempting to store file at: storage/app/{$filePath}");
             $path = $file->storeAs('uploads', $filename, 'local');
             $fullPath = storage_path('app/' . $path);
+            Log::info("File uploaded successfully: {$fullPath}");
+            Log::info("File permissions: " . substr(sprintf('%o', fileperms($fullPath)), -4));
             Log::info("Storage attempt completed", ['path' => $fullPath]);
-
+            chmod($fullPath, 0664);
             if (!file_exists($fullPath)) {
                 Log::error("Failed to store uploaded file to: {$fullPath}");
                 return response()->json(['error' => 'Failed to store uploaded file'], 500);

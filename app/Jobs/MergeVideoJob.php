@@ -35,8 +35,11 @@ class MergeVideoJob implements ShouldQueue
 
         $intro = public_path('videos/static/intro.mp4');
         $outro = public_path('videos/static/outro.mp4');
-        $user = storage_path('app/uploads/' . $this->userFilename);
 
+        Log::info("Starting MergeVideoJob for filename: {$this->userFilename}");
+        $user = storage_path('app/uploads/' . $this->userFilename);
+        Log::info("Upload directory contents: " . json_encode(scandir(storage_path('app/uploads'))));
+        Log::info("Checking user file: {$user}, exists: " . (file_exists($user) ? 'yes' : 'no'));
 
         $tempOutput = $processedStorageDir . '/result_' . $this->userFilename;
         $publicOutputDir = public_path('videos/processed');
@@ -50,6 +53,7 @@ class MergeVideoJob implements ShouldQueue
             ] as $label => $file
         ) {
             if (!file_exists($file)) {
+
                 Log::error("{$label} not found: {$file}");
                 return;
             }
@@ -69,8 +73,9 @@ class MergeVideoJob implements ShouldQueue
         }
 
         $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
+        Log::info("Executing FFmpeg command: {$cmdUser}");
         exec($cmdUser, $output, $exitCode);
-
+        Log::info("FFmpeg output: " . implode("\n", $output));
 
         if ($exitCode !== 0) {
             Log::error("Failed to process user video. FFmpeg exited with code {$exitCode}. Command: {$cmdUser}. Output:\n" . implode("\n", $output));
@@ -90,11 +95,6 @@ class MergeVideoJob implements ShouldQueue
 
         exec($cmd, $outputLines, $exitCode);
 
-        // @unlink($newIntro);
-        // @unlink($newUser);
-        // @unlink($newOutro);
-        // @unlink($user);
-
         if ($exitCode !== 0) {
             Log::error("FFmpeg concat failed: " . implode("\n", $outputLines));
             return;
@@ -106,7 +106,13 @@ class MergeVideoJob implements ShouldQueue
 
         $finalOutput = $publicOutputDir . '/result_' . $this->userFilename;
         rename($tempOutput, $finalOutput);
-
+        if (file_exists($finalOutput)) {
+            @unlink($newIntro);
+            @unlink($newUser);
+            @unlink($newOutro);
+            @unlink($user);
+            Log::info("Cleaned up temporary files for: {$this->userFilename}");
+        }
         Log::info("Video processed successfully: {$finalOutput}");
     }
 }
