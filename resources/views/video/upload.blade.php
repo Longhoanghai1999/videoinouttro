@@ -9,7 +9,6 @@
 </head>
 
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
-
     <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg mx-auto">
         <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Upload Your Video</h2>
         <form id="uploadForm" class="space-y-6" enctype="multipart/form-data">
@@ -20,6 +19,7 @@
                 <p class="text-gray-500 text-sm sm:text-base">Drop video here or click to upload</p>
             </div>
             <div id="loading" class="text-blue-600 font-medium text-center hidden">Processing...</div>
+            <div id="errorMessage" class="mt-4 text-red-600 font-medium text-center hidden"></div>
             <button type="submit"
                 class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Upload</button>
         </form>
@@ -36,6 +36,7 @@
         const videoInput = document.getElementById('videoInput');
         const dropZone = document.getElementById('dropZone');
         const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
         const resultDiv = document.getElementById('videoResult');
         const resultVideo = document.getElementById('resultVideo');
         const downloadLink = document.getElementById('downloadLink');
@@ -51,10 +52,15 @@
         form.addEventListener('submit', async e => {
             e.preventDefault();
             const file = videoInput.files[0];
-            if (!file) return;
+            if (!file) {
+                errorMessage.classList.remove('hidden');
+                errorMessage.textContent = 'Please select a video file.';
+                return;
+            }
 
             loading.classList.remove('hidden');
             resultDiv.classList.add('hidden');
+            errorMessage.classList.add('hidden');
 
             const formData = new FormData();
             formData.append('video', file);
@@ -74,16 +80,17 @@
 
                 if (res.ok) {
                     data = await res.json();
-                } else if (res.status === 422) {
-                    const errorData = await res.json();
-                    loading.classList.add('hidden');
-                    return;
                 } else {
-                    const errorData = await res.text();
+                    const errorData = await res.json();
+                    errorMessage.classList.remove('hidden');
+                    errorMessage.textContent = errorData.error ||
+                    'An error occurred while uploading the video.';
                     loading.classList.add('hidden');
                     return;
                 }
             } catch (error) {
+                errorMessage.classList.remove('hidden');
+                errorMessage.textContent = 'Failed to connect to server: ' + error.message;
                 loading.classList.add('hidden');
                 return;
             }

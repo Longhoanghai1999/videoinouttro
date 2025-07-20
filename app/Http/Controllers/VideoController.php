@@ -26,19 +26,23 @@ class VideoController extends Controller
         }
 
         $filename = Str::random(40) . '.mp4';
+        $filePath = $uploadDir . '/' . $filename;
+
         try {
-            $request->file('video')->move($uploadDir, $filename);
-            // Kiểm tra file có tồn tại sau khi di chuyển
-            if (!file_exists($uploadDir . '/' . $filename)) {
-                Log::error("Failed to move uploaded file to: {$uploadDir}/{$filename}");
+            // Sử dụng storeAs thay vì move để đảm bảo lưu file
+            $request->file('video')->storeAs('uploads', $filename, 'local');
+            // Kiểm tra file có tồn tại sau khi lưu
+            if (!file_exists($filePath)) {
+                Log::error("Failed to store uploaded file to: {$filePath}");
                 return response()->json(['error' => 'Failed to upload video'], 500);
             }
         } catch (\Exception $e) {
             Log::error("Upload error: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to upload video'], 500);
+            return response()->json(['error' => 'Failed to upload video: ' . $e->getMessage()], 500);
         }
 
-        MergeVideoJob::dispatch($filename);
+        // Dispatch job đồng bộ để debug (có thể đổi lại dispatch bất đồng bộ sau khi ổn định)
+        MergeVideoJob::dispatchSync($filename);
 
         return response()->json([
             'message' => 'Video is being processed...',
@@ -48,7 +52,7 @@ class VideoController extends Controller
 
     public function download($filename)
     {
-        $path = storage_path("app/processed/{$filename}");
+        $path = public_path("videos/processed/{$filename}");
         if (!file_exists($path)) {
             abort(404);
         }
