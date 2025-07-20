@@ -68,14 +68,14 @@ class MergeVideoJob implements ShouldQueue
         $newUser = $tmpDir . '/new_user_' . Str::random(10) . '.mp4';
         $newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
 
-        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
+        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
         exec($cmdIntro, $output, $exitCode);
         if ($exitCode !== 0) {
             Log::error("Failed to process intro: " . implode("\n", $output));
             return;
         }
 
-        $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
+        $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
 
         Log::info("Executing FFmpeg command for user video: {$cmdUser}");
         exec($cmdUser, $output, $exitCode);
@@ -86,7 +86,7 @@ class MergeVideoJob implements ShouldQueue
             return;
         }
 
-        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
+        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
         exec($cmdOutro, $output, $exitCode);
         if ($exitCode !== 0) {
             Log::error("Failed to process outro: " . implode("\n", $output));
