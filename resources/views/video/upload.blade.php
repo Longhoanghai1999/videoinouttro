@@ -88,7 +88,7 @@
             const filename = data.filename;
             const videoUrl = `/videos/result_${filename}`;
             let attempts = 0;
-            const maxAttempts = 40; // 120 seconds
+            const maxAttempts = 100; // 120 seconds
 
             const interval = setInterval(async () => {
                 attempts++;
@@ -105,7 +105,8 @@
                     } else if (attempts >= maxAttempts) {
                         clearInterval(interval);
                         alert(
-                            "Video processing timed out. Please try again or check server logs for errors.");
+                            "Video processing timed out. Please try again or check server logs for errors."
+                            );
                         loading.classList.add('hidden');
                     } else {
                         console.log(`Attempt ${attempts}: Video not ready yet at ${videoUrl}`);

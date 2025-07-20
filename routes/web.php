@@ -34,3 +34,4 @@ Route::get('/videos/{filename}', function ($filename) {
     if (!file_exists($path)) abort(404);
     return response()->file($path);
 });
+Route::get('/video-status/{filename}', [VideoController::class, 'checkStatus']);

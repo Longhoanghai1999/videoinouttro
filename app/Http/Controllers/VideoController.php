@@ -48,8 +48,15 @@ class VideoController extends Controller
 
         Log::info("✅ Video uploaded: {$uploadDir}/{$filename}");
 
-        // Dispatch the merge job
-        MergeVideoJob::dispatch($filename, $uniqueDir)->onQueue('video-processing');
+        // Dispatch the merge job synchronously for debugging
+        try {
+            MergeVideoJob::dispatchSync($filename, $uniqueDir);
+        } catch (\Exception $e) {
+            Log::error("❌ Synchronous job failed: {$e->getMessage()}");
+            return response()->json([
+                'errors' => ['video' => ['Processing failed: ' . $e->getMessage()]],
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Video is being processed...',
@@ -66,5 +73,14 @@ class VideoController extends Controller
         }
 
         return response()->file($path);
+    }
+
+    public function checkStatus($filename)
+    {
+        $path = public_path("videos/processed/result_{$filename}");
+        if (file_exists($path)) {
+            return response()->json(['status' => 'completed', 'url' => "/videos/result_{$filename}"]);
+        }
+        return response()->json(['status' => 'processing']);
     }
 }

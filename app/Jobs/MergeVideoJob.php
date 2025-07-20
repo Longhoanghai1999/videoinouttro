@@ -23,9 +23,10 @@ class MergeVideoJob implements ShouldQueue
         $this->filename = $filename;
         $this->uniqueDir = $uniqueDir;
     }
-
     public function handle()
     {
+        Log::info("📄 Starting MergeVideoJob for filename: {$this->filename}, uniqueDir: {$this->uniqueDir}");
+
         // Define directories
         $uploadDir = storage_path("app/uploads/{$this->uniqueDir}");
         $processedDir = storage_path('app/processed');
@@ -34,6 +35,7 @@ class MergeVideoJob implements ShouldQueue
 
         foreach ([$uploadDir, $processedDir, $tmpDir, $publicDir] as $dir) {
             if (!file_exists($dir)) {
+                Log::info("📁 Creating directory: {$dir}");
                 mkdir($dir, 0755, true);
             }
         }
@@ -60,31 +62,46 @@ class MergeVideoJob implements ShouldQueue
             }
         }
 
-        // Re-encode inputs to ensure compatibility
-        $tempIntro = "{$tmpDir}/temp_intro_" . Str::random(10) . '.mp4';
+        // Optimize: Skip re-encoding intro/outro if pre-encoded
+        $tempIntro = $intro; // Assume pre-encoded
+        $tempOutro = $outro; // Assume pre-encoded
         $tempUser = "{$tmpDir}/temp_user_" . Str::random(10) . '.mp4';
-        $tempOutro = "{$tmpDir}/temp_outro_" . Str::random(10) . '.mp4';
 
-        $reencodeCmd = "ffmpeg -y -i %s -c:v libx264 -preset veryfast -c:a aac -ar 44100 -r 30 -s 854x480 -pix_fmt yuv420p %s";
-        foreach (
-            [
-                $intro => $tempIntro,
-                $userVideo => $tempUser,
-                $outro => $tempOutro,
-            ] as $input => $output
-        ) {
-            Log::info("📄 Re-encoding: {$input} to {$output}");
-            $cmd = sprintf($reencodeCmd, escapeshellarg($input), escapeshellarg($output));
-            exec($cmd, $outputLines, $exitCode);
-            if ($exitCode !== 0) {
-                Log::error("❌ FFmpeg re-encode failed for {$input}", [
-                    'exit_code' => $exitCode,
-                    'output' => $outputLines,
-                    'cmd' => $cmd,
-                ]);
-                $this->fail(new \Exception("Re-encoding failed for {$input}"));
-                return;
-            }
+        // Re-encode user video
+        $reencodeCmd = "ffmpeg -y -i %s -c:v libx264 -preset veryfast -c:a aac -ar 44100 -r 30 -s 640x360 -pix_fmt yuv420p %s 2>&1";
+        Log::info("📄 Re-encoding user video: {$userVideo} to {$tempUser}");
+        $cmd = sprintf($reencodeCmd, escapeshellarg($userVideo), escapeshellarg($tempUser));
+
+        // Use proc_open for better error capture
+        $descriptors = [
+            1 => ['pipe', 'w'], // stdout
+            2 => ['pipe', 'w'], // stderr
+        ];
+        $process = proc_open($cmd, $descriptors, $pipes);
+        $output = '';
+        $errorOutput = '';
+
+        if (is_resource($process)) {
+            $output = stream_get_contents($pipes[1]);
+            $errorOutput = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+        } else {
+            Log::error("❌ Failed to start FFmpeg re-encode for {$userVideo}");
+            $this->fail(new \Exception("Failed to start FFmpeg re-encode"));
+            return;
+        }
+
+        if ($exitCode !== 0) {
+            Log::error("❌ FFmpeg re-encode failed for {$userVideo}", [
+                'exit_code' => $exitCode,
+                'output' => $output,
+                'error' => $errorOutput,
+                'cmd' => $cmd,
+            ]);
+            $this->fail(new \Exception("Re-encoding failed for user video"));
+            return;
         }
 
         // Create concat list
@@ -97,11 +114,26 @@ class MergeVideoJob implements ShouldQueue
         Log::info("📄 FFmpeg merge list created: {$listFile}, content:\n{$content}");
 
         // Concatenate videos
-        $concatCmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c:v libx264 -c:a aac -ar 44100 -pix_fmt yuv420p " . escapeshellarg($tempOutput);
-        exec($concatCmd, $outputLines, $exitCode);
+        $concatCmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile) . " -c:v libx264 -c:a aac -ar 44100 -pix_fmt yuv420p " . escapeshellarg($tempOutput) . " 2>&1";
+        Log::info("📄 Running FFmpeg concat: {$concatCmd}");
+        $process = proc_open($concatCmd, $descriptors, $pipes);
+        $output = '';
+        $errorOutput = '';
+
+        if (is_resource($process)) {
+            $output = stream_get_contents($pipes[1]);
+            $errorOutput = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+        } else {
+            Log::error("❌ Failed to start FFmpeg concat");
+            $this->fail(new \Exception("Failed to start FFmpeg concat"));
+            return;
+        }
 
         // Clean up temporary files
-        foreach ([$listFile, $tempIntro, $tempUser, $tempOutro] as $file) {
+        foreach ([$listFile, $tempUser] as $file) {
             if (file_exists($file)) {
                 unlink($file);
             }
@@ -110,7 +142,8 @@ class MergeVideoJob implements ShouldQueue
         if ($exitCode !== 0) {
             Log::error("❌ FFmpeg merge failed", [
                 'exit_code' => $exitCode,
-                'output' => $outputLines,
+                'output' => $output,
+                'error' => $errorOutput,
                 'cmd' => $concatCmd,
             ]);
             $this->fail(new \Exception("FFmpeg merge failed"));
@@ -125,6 +158,7 @@ class MergeVideoJob implements ShouldQueue
         }
 
         // Move result to public directory
+        Log::info("📄 Attempting to move file from {$tempOutput} to {$finalOutput}");
         if (!rename($tempOutput, $finalOutput)) {
             Log::error("❌ Failed to move file from {$tempOutput} to {$finalOutput}", [
                 'error' => error_get_last(),
@@ -151,6 +185,5 @@ class MergeVideoJob implements ShouldQueue
         if (file_exists($uploadDir)) {
             File::deleteDirectory($uploadDir);
         }
-        // Optionally notify user via frontend polling or other mechanism
     }
 }
