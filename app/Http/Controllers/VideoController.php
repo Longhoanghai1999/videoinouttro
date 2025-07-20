@@ -16,39 +16,42 @@ class VideoController extends Controller
 
     public function upload(Request $request)
     {
+        // Validate the uploaded file
         $request->validate([
             'video' => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-m4v,video/*|max:51200',
         ]);
 
-        $uploadDir = storage_path('app/uploads');
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
-        // Validate video file with FFmpeg
+        // Check video integrity using ffprobe
         $file = $request->file('video');
         $tempPath = $file->getPathname();
         $cmd = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($tempPath);
         exec($cmd, $output, $exitCode);
 
         if ($exitCode !== 0 || empty($output)) {
-            return response()->json(['errors' => ['video' => ['Invalid or corrupted video file.']]], 422);
+            return response()->json([
+                'errors' => ['video' => ['Invalid or corrupted video file.']],
+            ], 422);
         }
 
-        // Clean upload directory (consider user-specific directories to avoid race conditions)
-        File::cleanDirectory($uploadDir);
+        // Create unique upload directory for this request
+        $uniqueDir = Str::random(10);
+        $uploadDir = storage_path("app/uploads/{$uniqueDir}");
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
 
+        // Store the file with a unique filename
         $filename = Str::random(40) . '.mp4';
         $file->move($uploadDir, $filename);
 
-        MergeVideoJob::dispatch($filename);
+        // Dispatch the merge job
+        MergeVideoJob::dispatch($filename, $uniqueDir)->onQueue('video-processing');
 
         return response()->json([
             'message' => 'Video is being processed...',
             'filename' => $filename,
-        ]);
+        ], 202);
     }
-
 
     public function download($filename)
     {
