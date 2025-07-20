@@ -80,8 +80,18 @@
                     const filename = data.filename;
                     const videoUrl = `/videos/result_${filename}`;
 
-                    // Polling check every 3 seconds
+                    // Polling with timeout
+                    const maxAttempts = 20; // Try for ~60 seconds
+                    let attempts = 0;
                     const interval = setInterval(async () => {
+                        if (attempts >= maxAttempts) {
+                            clearInterval(interval);
+                            loading.classList.add('hidden');
+                            errorMessage.classList.remove('hidden');
+                            errorMessage.textContent = 'Video processing timed out.';
+                            return;
+                        }
+
                         const check = await fetch(videoUrl, {
                             method: 'HEAD'
                         });
@@ -92,6 +102,7 @@
                             resultDiv.classList.remove('hidden');
                             loading.classList.add('hidden');
                         }
+                        attempts++;
                     }, 3000);
                 } else {
                     const errorData = await res.json();

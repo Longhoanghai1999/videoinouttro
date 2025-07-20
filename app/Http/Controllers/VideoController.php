@@ -39,6 +39,16 @@ class VideoController extends Controller
             return response()->json(['error' => 'Failed to upload video: ' . $e->getMessage()], 500);
         }
 
+        $fullPath = storage_path('app/' . $path);
+        $output = [];
+        $exitCode = 0;
+        exec("ffprobe -i " . escapeshellarg($fullPath) . " 2>&1", $output, $exitCode);
+        if ($exitCode !== 0) {
+            Log::error("Invalid video file: " . implode("\n", $output));
+            return response()->json(['error' => 'Invalid video file'], 422);
+        }
+
+
         // Dispatch đồng bộ để debug
         MergeVideoJob::dispatchSync($filename);
 
