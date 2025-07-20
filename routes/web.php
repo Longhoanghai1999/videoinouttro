@@ -27,8 +27,6 @@ use App\Http\Controllers\VideoController;
 
 Route::get('/', [VideoController::class, 'index']);
 Route::post('/upload', [VideoController::class, 'upload'])->name('video.upload');
-
-
 Route::get('/videos/{filename}', function ($filename) {
     $path = public_path("videos/processed/{$filename}");
     if (!file_exists($path)) abort(404);

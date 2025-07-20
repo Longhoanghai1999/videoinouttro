@@ -24,20 +24,26 @@ class MergeVideoJob implements ShouldQueue
     public function handle()
     {
         $processedStorageDir = storage_path('app/processed');
+        $uploadDir = storage_path('app/uploads');
+        $tmpDir = storage_path('app/tmp');
+
         if (!file_exists($processedStorageDir)) {
             mkdir($processedStorageDir, 0777, true);
         }
-
-        $uploadDir = storage_path('app/uploads');
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
+        }
+        if (!file_exists($tmpDir)) {
+            mkdir($tmpDir, 0777, true);
         }
 
         $intro = public_path('videos/static/intro.mp4');
         $outro = public_path('videos/static/outro.mp4');
-        $user  = $uploadDir . '/' . $this->userFilename;
+        $user = $uploadDir . '/' . $this->userFilename;
+        $tempOutput = $processedStorageDir . '/result_' . $this->userFilename;
+        $publicOutputDir = public_path('videos/processed');
+        $logPath = storage_path('logs/ffmpeg_' . Str::random(8) . '.log');
 
-        // Kiểm tra sự tồn tại của các file
         foreach (
             [
                 'Intro video' => $intro,
@@ -46,68 +52,64 @@ class MergeVideoJob implements ShouldQueue
             ] as $label => $file
         ) {
             if (!file_exists($file)) {
-                Log::error("❌ {$label} not found at path: {$file}");
+                Log::error("{$label} not found: {$file}");
                 return;
             }
         }
 
-        $tempOutput = storage_path("app/processed/result_{$this->userFilename}");
-        $tmpDir = storage_path('app/tmp');
-        if (!file_exists($tmpDir)) {
-            mkdir($tmpDir, 0777, true);
-        }
+        // Chuẩn hóa video để đảm bảo đồng nhất
+        $newIntro = $tmpDir . '/new_intro_' . Str::random(10) . '.mp4';
+        $newUser = $tmpDir . '/new_user_' . Str::random(10) . '.mp4';
+        $newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
 
-        $listFile = $tmpDir . '/merge_list_' . Str::random(10) . '.txt';
-
-        // Tạo file danh sách để concat
-        $content = "file '" . addslashes($intro) . "'\n";
-        $content .= "file '" . addslashes($user) . "'\n";
-        $content .= "file '" . addslashes($outro) . "'\n";
-        file_put_contents($listFile, $content);
-
-        Log::info("📄 FFmpeg merge list content:\n" . $content);
-
-        // Gọi ffmpeg
-        $logPath = storage_path("logs/ffmpeg_" . Str::random(8) . ".log");
-
-        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($listFile)
-            . " -vf scale=1280:-2 -preset fast -crf 23 -c:v libx264 -c:a aac -movflags +faststart "
-            . escapeshellarg($tempOutput)
-            . " > " . escapeshellarg($logPath) . " 2>&1";
-
-        exec($cmd, $outputLines, $exitCode);
-
-        Log::info("📼 FFmpeg command executed", [
-            'cmd' => $cmd,
-            'log_file' => $logPath,
-            'exit_code' => $exitCode,
-        ]);
-
-
-        // Xóa file tạm danh sách
-        unlink($listFile);
-
+        // Chuẩn hóa intro
+        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
+        exec($cmdIntro, $output, $exitCode);
         if ($exitCode !== 0) {
-            Log::error("❌ FFmpeg merge failed", [
-                'exit_code' => $exitCode,
-                'output' => $outputLines,
-                'cmd' => $cmd,
-            ]);
+            Log::error("Failed to process intro: " . implode("\n", $output));
             return;
         }
 
-        // Di chuyển kết quả sang public
-        $publicOutputDir = public_path('videos/processed');
+        // Chuẩn hóa user video, thêm audio giả nếu cần
+        $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
+        exec($cmdUser, $output, $exitCode);
+        if ($exitCode !== 0) {
+            Log::error("Failed to process user video: " . implode("\n", $output));
+            return;
+        }
+
+        // Chuẩn hóa outro
+        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=1280:720,setsar=1 -r 30 -video_track_timescale 90k -c:v libx264 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
+        exec($cmdOutro, $output, $exitCode);
+        if ($exitCode !== 0) {
+            Log::error("Failed to process outro: " . implode("\n", $output));
+            return;
+        }
+
+        // Sử dụng concat filter để ghép video
+        $cmd = "ffmpeg -y -i " . escapeshellarg($newIntro) . " -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($newOutro) .
+            " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat=n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -c:a aac -movflags +faststart " .
+            escapeshellarg($tempOutput) . " > " . escapeshellarg($logPath) . " 2>&1";
+
+        exec($cmd, $outputLines, $exitCode);
+
+        // Xóa file tạm
+        @unlink($newIntro);
+        @unlink($newUser);
+        @unlink($newOutro);
+
+        if ($exitCode !== 0) {
+            Log::error("FFmpeg concat failed: " . implode("\n", $outputLines));
+            return;
+        }
+
         if (!file_exists($publicOutputDir)) {
             mkdir($publicOutputDir, 0777, true);
         }
 
         $finalOutput = $publicOutputDir . '/result_' . $this->userFilename;
+        rename($tempOutput, $finalOutput);
 
-        if (!rename($tempOutput, $finalOutput)) {
-            Log::error("❌ Failed to move merged video to public folder: {$finalOutput}");
-        } else {
-            Log::info("✅ Merge success and moved to public: {$finalOutput}");
-        }
+        Log::info("Video processed successfully: {$finalOutput}");
     }
 }
