@@ -57,6 +57,7 @@
             formData.append('video', file);
 
             let data = null;
+
             try {
                 const res = await fetch("{{ route('video.upload') }}", {
                     method: 'POST',
@@ -68,16 +69,22 @@
                     body: formData
                 });
 
-                if (!res.ok) {
+                if (res.ok) {
+                    data = await res.json();
+                    console.log("✅ Success:", data);
+                } else if (res.status === 422) {
                     const errorData = await res.json();
                     console.error("❌ Validation errors:", errorData.errors);
                     alert(Object.values(errorData.errors).flat().join("\n"));
                     loading.classList.add('hidden');
                     return;
+                } else {
+                    const errorData = await res.text();
+                    console.error("❌ Other error:", errorData);
+                    alert("Đã có lỗi xảy ra.");
+                    loading.classList.add('hidden');
+                    return;
                 }
-
-                data = await res.json();
-                console.log("✅ Success:", data);
             } catch (error) {
                 console.error("❌ Exception:", error);
                 alert("Lỗi kết nối đến máy chủ.");
@@ -87,34 +94,18 @@
 
             const filename = data.filename;
             const videoUrl = `/videos/result_${filename}`;
-            let attempts = 0;
-            const maxAttempts = 100; // 120 seconds
 
+            // Polling check every 3 seconds
             const interval = setInterval(async () => {
-                attempts++;
-                try {
-                    const check = await fetch(videoUrl, {
-                        method: 'HEAD'
-                    });
-                    if (check.ok) {
-                        clearInterval(interval);
-                        resultVideo.src = videoUrl;
-                        downloadLink.href = videoUrl;
-                        resultDiv.classList.remove('hidden');
-                        loading.classList.add('hidden');
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(interval);
-                        alert(
-                            "Video processing timed out. Please try again or check server logs for errors."
-                            );
-                        loading.classList.add('hidden');
-                    } else {
-                        console.log(`Attempt ${attempts}: Video not ready yet at ${videoUrl}`);
-                    }
-                } catch (error) {
+                const check = await fetch(videoUrl, {
+                    method: 'HEAD'
+                });
+
+                if (check.ok) {
                     clearInterval(interval);
-                    console.error("❌ Polling error:", error);
-                    alert("Error checking video status: " + error.message);
+                    resultVideo.src = videoUrl;
+                    downloadLink.href = videoUrl;
+                    resultDiv.classList.remove('hidden');
                     loading.classList.add('hidden');
                 }
             }, 3000);
