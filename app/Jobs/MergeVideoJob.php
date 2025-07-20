@@ -35,7 +35,8 @@ class MergeVideoJob implements ShouldQueue
 
         $intro = public_path('videos/static/intro.mp4');
         $outro = public_path('videos/static/outro.mp4');
-        $user = $this->userFilename; // Đã là đường dẫn đầy đủ
+        $user = storage_path('app/uploads/' . $this->userFilename);
+
 
         $tempOutput = $processedStorageDir . '/result_' . $this->userFilename;
         $publicOutputDir = public_path('videos/processed');
