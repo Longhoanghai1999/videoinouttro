@@ -57,6 +57,12 @@
                 return;
             }
 
+            console.log('File details:', {
+                name: file.name,
+                size: file.size,
+                type: file.type
+            });
+
             loading.classList.remove('hidden');
             resultDiv.classList.add('hidden');
             errorMessage.classList.add('hidden');
@@ -75,13 +81,15 @@
                     body: formData
                 });
 
+                const responseText = await res.text();
+                console.log('Response:', responseText);
+
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = JSON.parse(responseText);
                     const filename = data.filename;
                     const videoUrl = `/videos/result_${filename}`;
 
-                    // Polling with timeout
-                    const maxAttempts = 20; // Try for ~60 seconds
+                    const maxAttempts = 20;
                     let attempts = 0;
                     const interval = setInterval(async () => {
                         if (attempts >= maxAttempts) {
@@ -105,13 +113,13 @@
                         attempts++;
                     }, 3000);
                 } else {
-                    const errorData = await res.json();
                     errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = errorData.error ||
-                    'An error occurred while uploading the video.';
+                    errorMessage.textContent = JSON.parse(responseText).error ||
+                        'An error occurred while uploading the video.';
                     loading.classList.add('hidden');
                 }
             } catch (error) {
+                console.error('Fetch error:', error);
                 errorMessage.classList.remove('hidden');
                 errorMessage.textContent = 'Failed to connect to server: ' + error.message;
                 loading.classList.add('hidden');
