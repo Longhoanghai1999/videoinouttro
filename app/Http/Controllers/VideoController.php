@@ -62,6 +62,16 @@ class VideoController extends Controller
             Log::error("Download file not found: {$path}");
             abort(404);
         }
-        return response()->file($path);
+
+        return response()->file($path, [], function () use ($path) {
+            try {
+                unlink($path);
+                Log::info("File deleted after download: {$path}");
+            } catch (\Exception $e) {
+                Log::error("Failed to delete file after download: {$path}, Error: " . $e->getMessage());
+            }
+        });
+
+        // return response()->file($path);
     }
 }
