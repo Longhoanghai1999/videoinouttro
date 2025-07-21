@@ -24,7 +24,7 @@
                 Tải video của bạn lên
             </h2>
             <p class="text-base sm:text-lg text-gray-600 mb-3 text-center">
-                Đây là công cụ giúp các bạn <span class="font-semibold text-blue-600">ghép nhanh video intro,
+                Đây là công cụ giúp các bạn <span class="font-semibold text-blue-600">ghép nhanh video
                     outro</span> của cuộc thi
             </p>
             <p class="text-base sm:text-lg text-gray-600 mb-4 sm:mb-6 text-center">
