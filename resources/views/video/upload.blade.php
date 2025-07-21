@@ -156,7 +156,8 @@
                 if (res.ok) {
                     const data = JSON.parse(responseText);
                     const filename = data.filename;
-                    const videoUrl = `/videos/result_${filename}`;
+                    const baseFilename = filename.split('.').slice(0, -1).join('.');
+                    const videoUrl = `/videos/${baseFilename}_SV.mp4`;
 
                     const maxAttempts = 400;
                     let attempts = 0;
@@ -179,6 +180,7 @@
                             clearInterval(interval);
                             resultVideo.src = videoUrl;
                             downloadLink.href = videoUrl;
+                            downloadLink.setAttribute('download', `${baseFilename}_SV.mp4`);
                             resultDiv.classList.remove('hidden');
                             loading.classList.add('hidden');
                             // Re-enable submit button
