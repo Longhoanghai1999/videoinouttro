@@ -22,7 +22,9 @@ class VideoController extends Controller
                 'video' => 'required|file|mimetypes:video/mp4,video/quicktime,video/x-m4v,video/*|max:51200',
             ]);
 
-            $filename = Str::random(40) . '.mp4';
+            $originalName = pathinfo($request->file('video')->getClientOriginalName(), PATHINFO_FILENAME);
+            $timestamp = time(); // hoặc dùng Str::uuid() nếu muốn UUID
+            $filename = $originalName . '_' . $timestamp . '.mp4';
             $filePath = 'uploads/' . $filename;
 
             $file = $request->file('video');
