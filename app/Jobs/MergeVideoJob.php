@@ -52,19 +52,20 @@ class MergeVideoJob implements ShouldQueue
             ] as $label => $file
         ) {
             if (!file_exists($file)) {
+                Log::error("{$label} not found: {$file}");
                 return;
             }
         }
 
-        $newIntro = $tmpDir . '/new_intro_' . Str::random(10) . '.mp4';
+        //$newIntro = $tmpDir . '/new_intro_' . Str::random(10) . '.mp4';
         $newUser = $tmpDir . '/new_user_' . Str::random(10) . '.mp4';
-        $newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
+        //$newOutro = $tmpDir . '/new_outro_' . Str::random(10) . '.mp4';
 
-        $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
-        exec($cmdIntro, $output, $exitCode);
-        if ($exitCode !== 0) {
-            return;
-        }
+        // $cmdIntro = "ffmpeg -y -i " . escapeshellarg($intro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newIntro) . " > {$logPath}_intro 2>&1";
+        // exec($cmdIntro, $output, $exitCode);
+        // if ($exitCode !== 0) {
+        //     return;
+        // }
 
         $cmdUser = "ffmpeg -y -i " . escapeshellarg($user) . " -f lavfi -i anullsrc=cl=stereo:r=44100 -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -shortest " . escapeshellarg($newUser) . " > {$logPath}_user 2>&1";
 
@@ -73,17 +74,17 @@ class MergeVideoJob implements ShouldQueue
             return;
         }
 
-        $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
-        exec($cmdOutro, $output, $exitCode);
-        if ($exitCode !== 0) {
-            return;
-        }
+        // $cmdOutro = "ffmpeg -y -i " . escapeshellarg($outro) . " -vf scale=720:1280,setsar=1 -r 30 -video_track_timescale 90000 -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 " . escapeshellarg($newOutro) . " > {$logPath}_outro 2>&1";
+        // exec($cmdOutro, $output, $exitCode);
+        // if ($exitCode !== 0) {
+        //     return;
+        // }
 
         // $cmd = "ffmpeg -y -i " . escapeshellarg($newIntro) . " -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($newOutro) .
         //     " -filter_complex \"[0:v][0:a][1:v][1:a][2:v][2:a]concat=n=3:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -movflags +faststart " .
         //     escapeshellarg($tempOutput) . " > " . escapeshellarg($logPath) . " 2>&1";
 
-        $cmd = "ffmpeg -y -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($newIntro) .
+        $cmd = "ffmpeg -y -i " . escapeshellarg($newUser) . " -i " . escapeshellarg($intro) .
             " -filter_complex \"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -preset fast -crf 23 -c:a aac -ar 44100 -ac 2 -movflags +faststart " .
             escapeshellarg($tempOutput) . " > " . escapeshellarg($logPath) . " 2>&1";
 
@@ -102,9 +103,9 @@ class MergeVideoJob implements ShouldQueue
         $finalOutput = $publicOutputDir . '/' . $baseFilename . '_SV.mp4';
         rename($tempOutput, $finalOutput);
         if (file_exists($finalOutput)) {
-            @unlink($newIntro);
+            //@unlink($newIntro);
             @unlink($newUser);
-            @unlink($newOutro);
+            //@unlink($newOutro);
             @unlink($user);
         }
     }
